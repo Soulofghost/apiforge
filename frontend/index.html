@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APIForge — Production API Gateway &amp; Telemetry Ops Console</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="gateway-layout">
+    <!-- Top Bar -->
+    <header class="top-nav">
+      <div class="brand">
+        <div class="logo-mark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+            <line x1="6" y1="6" x2="6.01" y2="6"/>
+            <line x1="6" y1="18" x2="6.01" y2="18"/>
+          </svg>
+        </div>
+        <div class="brand-title">
+          <h1>APIFORGE <span class="badge-ops">EDGE GATEWAY</span></h1>
+          <span class="sub">REVERSE PROXY • TOKEN-BUCKET LIMITER • AUTH &amp; TELEMETRY</span>
+        </div>
+      </div>
+
+      <div class="nav-controls">
+        <div class="system-health">
+          <span class="ping-dot"></span>
+          <span id="gatewayStatus">GATEWAY ONLINE (PORT 8080)</span>
+        </div>
+        <button id="refreshDataBtn" class="btn btn-secondary">Sync Telemetry</button>
+      </div>
+    </header>
+
+    <!-- Metrics Ribbon -->
+    <section class="metrics-ribbon">
+      <div class="metric-card">
+        <span class="card-label">TOTAL INGESTED REQUESTS</span>
+        <span class="card-value font-mono" id="mTotalReqs">0</span>
+        <span class="card-meta">Lifetime Edge Dispatches</span>
+      </div>
+      <div class="metric-card">
+        <span class="card-label">SUCCESS RATIO (2XX)</span>
+        <span class="card-value text-emerald font-mono" id="mSuccessRate">100.0%</span>
+        <span class="card-meta" id="mSuccessCount">0 successful calls</span>
+      </div>
+      <div class="metric-card">
+        <span class="card-label">AVERAGE LATENCY</span>
+        <span class="card-value text-cyan font-mono" id="mAvgLatency">0.00 ms</span>
+        <span class="card-meta">Gateway Dispatch Overhead</span>
+      </div>
+      <div class="metric-card">
+        <span class="card-label">ACTIVE PROXY ROUTES</span>
+        <span class="card-value text-purple font-mono" id="mActiveRoutes">0</span>
+        <span class="card-meta">Upstream Registered Nodes</span>
+      </div>
+      <div class="metric-card">
+        <span class="card-label">VALID API KEYS</span>
+        <span class="card-value text-gold font-mono" id="mActiveKeys">0</span>
+        <span class="card-meta">Active Token Credentials</span>
+      </div>
+    </section>
+
+    <!-- Main Content Workspace -->
+    <main class="console-body">
+      <!-- Left Column: Routes & Simulator -->
+      <div class="col-main">
+        <!-- Section: Upstream Route Management -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Configured Upstream Routes</h2>
+              <p class="panel-desc">Path prefix mappings, target microservices, and dynamic rate-limit thresholds</p>
+            </div>
+            <button class="btn btn-primary" onclick="toggleRouteModal()">+ Register Route</button>
+          </div>
+
+          <!-- Add Route Drawer/Modal -->
+          <div class="drawer hidden" id="routeDrawer">
+            <form id="newRouteForm" class="route-form">
+              <div class="form-grid">
+                <div class="form-field">
+                  <label>Path Prefix</label>
+                  <input type="text" id="routePrefix" placeholder="/orders" required>
+                </div>
+                <div class="form-field">
+                  <label>Target Upstream Service</label>
+                  <input type="text" id="routeTarget" placeholder="svc_orders" required>
+                </div>
+                <div class="form-field">
+                  <label>Max Requests (Window)</label>
+                  <input type="number" id="routeLimit" value="60" min="1" required>
+                </div>
+                <div class="form-field">
+                  <label>Window Duration (Sec)</label>
+                  <input type="number" id="routeWindow" value="60" min="1" required>
+                </div>
+              </div>
+              <div class="form-field">
+                <label>Description</label>
+                <input type="text" id="routeDesc" placeholder="Order processing and fulfillment service">
+              </div>
+              <div class="checkbox-row">
+                <label><input type="checkbox" id="routeAuthReq"> Require API Key Authentication</label>
+                <label><input type="checkbox" id="routeStripPrefix" checked> Strip Prefix Before Forwarding</label>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="toggleRouteModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Route</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Routes Table -->
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Path Prefix</th>
+                  <th>Target Microservice</th>
+                  <th>Rate Limit</th>
+                  <th>Auth</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="routesTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section: Interactive Gateway Simulator -->
+        <div class="panel" style="margin-top: 1.5rem;">
+          <div class="panel-header">
+            <div>
+              <h2>Interactive Gateway Simulator</h2>
+              <p class="panel-desc">Test real-time routing, authentication, latency, and rate-limit headers</p>
+            </div>
+          </div>
+
+          <div class="simulator-box">
+            <div class="sim-url-bar">
+              <select id="simMethod" class="select-method">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PATCH">PATCH</option>
+                <option value="DELETE">DELETE</option>
+              </select>
+              <input type="text" id="simPath" class="input-url font-mono" value="/gateway/users/profile" placeholder="/gateway/...">
+              <button id="simSendBtn" class="btn btn-cyan">Dispatch Request</button>
+            </div>
+
+            <div class="sim-options-grid">
+              <div class="sim-opt-field">
+                <label>API Key (x-api-key)</label>
+                <input type="text" id="simApiKey" class="font-mono" placeholder="ak_test_master_key_8f3a2c7e1b4d (optional)">
+              </div>
+              <div class="sim-opt-field">
+                <label>Payload (JSON)</label>
+                <input type="text" id="simPayload" class="font-mono" placeholder='{"sample": true}'>
+              </div>
+            </div>
+
+            <!-- Simulator Output -->
+            <div class="sim-response-card" id="simResponseCard">
+              <div class="sim-res-header">
+                <div class="res-left">
+                  <span class="status-badge" id="simResStatus">STATUS: READY</span>
+                  <span class="time-badge font-mono" id="simResLatency">0.0 ms</span>
+                </div>
+                <div class="res-right font-mono" id="simResRateHeaders">
+                  Remaining: -- | Limit: -- | Reset: --
+                </div>
+              </div>
+              <pre class="res-body font-mono" id="simResBody">// Dispatch a request above to inspect the simulated upstream payload and gateway headers.</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: API Keys & Recent Access Logs -->
+      <div class="col-side">
+        <!-- API Key Management -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h3>API Credentials</h3>
+              <p class="panel-desc">Tokens with scoped rate limits</p>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="toggleKeyModal()">+ New Key</button>
+          </div>
+
+          <!-- Key Creation Box -->
+          <div class="drawer hidden" id="keyDrawer">
+            <form id="newKeyForm" class="route-form">
+              <div class="form-field">
+                <label>Key Name / Label</label>
+                <input type="text" id="keyName" placeholder="Worker Daemon Key" required>
+              </div>
+              <div class="form-field">
+                <label>Role</label>
+                <select id="keyRole">
+                  <option value="developer">developer</option>
+                  <option value="admin">admin</option>
+                  <option value="read_only">read_only</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Rate Limit Override (Optional)</label>
+                <input type="number" id="keyLimitOverride" placeholder="e.g. 500">
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="toggleKeyModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Generate</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="keys-list" id="keysList">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Real-Time Access Telemetry Stream -->
+        <div class="panel" style="margin-top: 1.5rem;">
+          <div class="panel-header">
+            <div>
+              <h3>Live Access Stream</h3>
+              <p class="panel-desc">Recent dispatches through gateway</p>
+            </div>
+          </div>
+
+          <div class="log-stream" id="logStream">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

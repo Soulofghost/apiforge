@@ -1,0 +1,22 @@
+{
+  "name": "apiforge-gateway",
+  "version": "1.0.0",
+  "description": "Production-grade API Gateway & Management Platform with rate limiting, API key auth, and routing telemetry",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "api-gateway",
+    "reverse-proxy",
+    "rate-limiter",
+    "developer-tools",
+    "telemetry"
+  ],
+  "author": "Alvin MS",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
